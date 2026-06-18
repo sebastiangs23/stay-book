@@ -1,7 +1,7 @@
 export const RESERVATION_STATUS = {
-  UPCOMING: "upcoming",
-  ACTIVE: "active",
-  CANCELLED: "cancelled",
+  UPCOMING: "UPCOMING",
+  ACTIVE: "ACTIVE",
+  CANCELLED: "CANCELLED",
 };
 
 export const STATUS_TABS = [

@@ -1,5 +1,20 @@
 import { Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { getStoredUser } from "../utils/utils";
+
+export function RoleRoute({ children, allowedRoles }) {
+  const user = getStoredUser();
+
+  if (!user) {
+    return <Navigate to="/auth/sign-in" replace />;
+  }
+
+  if (!allowedRoles.includes(user.role)) {
+    return <Navigate to="/home" replace />;
+  }
+
+  return children;
+}
 
 export function ProtectedRoute({ children }) {
   const { isAuthenticated } = useSelector((state) => state.auth);

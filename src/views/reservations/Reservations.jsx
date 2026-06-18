@@ -13,12 +13,43 @@ import {
   calculateNights,
 } from "../../utils/utils";
 
+const API_RESERVATION_STATUS = {
+  UPCOMING: "upcoming",
+  ACTIVE: "active",
+  PAST: "past",
+  CANCELLED: "cancelled",
+};
+
+function normalizeStatus(status) {
+  return String(status || "")
+    .trim()
+    .toLowerCase();
+}
+
+function getStatusConstant(statusKey) {
+  return RESERVATION_STATUS?.[statusKey] || API_RESERVATION_STATUS[statusKey];
+}
+
+function isSameStatus(status, apiStatus) {
+  return normalizeStatus(status) === apiStatus;
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  const message = error.response?.data?.message;
+
+  if (Array.isArray(message)) {
+    return message[0] || fallbackMessage;
+  }
+
+  return message || fallbackMessage;
+}
+
 export default function Reservations() {
   const user = getStoredUser();
 
   const [reservations, setReservations] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState(
-    RESERVATION_STATUS.UPCOMING,
+    getStatusConstant("UPCOMING"),
   );
   const [loading, setLoading] = useState(false);
   const [editingReservation, setEditingReservation] = useState(null);
@@ -41,7 +72,7 @@ export default function Reservations() {
       setLoading(true);
 
       const params = {
-        status,
+        status: normalizeStatus(status) || API_RESERVATION_STATUS.UPCOMING,
       };
 
       if (!isStaff) {
@@ -54,54 +85,71 @@ export default function Reservations() {
 
       setReservations(response.data?.data || []);
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Could not load reservations",
-      );
+      toast.error(getErrorMessage(error, "Could not load reservations"));
     } finally {
       setLoading(false);
     }
   }
 
   function getReservationStatus(reservation) {
-    if (reservation.status === RESERVATION_STATUS.CANCELLED) {
-      return RESERVATION_STATUS.CANCELLED;
+    const status = normalizeStatus(reservation.status);
+    const internalStatus = normalizeStatus(reservation.internalStatus);
+
+    if (
+      status === API_RESERVATION_STATUS.CANCELLED ||
+      internalStatus === API_RESERVATION_STATUS.CANCELLED
+    ) {
+      return getStatusConstant("CANCELLED");
     }
 
-    if (reservation.status === RESERVATION_STATUS.UPCOMING) {
-      return RESERVATION_STATUS.UPCOMING;
+    if (status === API_RESERVATION_STATUS.UPCOMING) {
+      return getStatusConstant("UPCOMING");
     }
 
-    if (reservation.status === RESERVATION_STATUS.ACTIVE) {
-      return RESERVATION_STATUS.ACTIVE;
+    if (status === API_RESERVATION_STATUS.ACTIVE) {
+      return getStatusConstant("ACTIVE");
+    }
+
+    if (status === API_RESERVATION_STATUS.PAST) {
+      return getStatusConstant("PAST");
     }
 
     const now = new Date();
     const checkIn = new Date(reservation.checkIn);
     const checkOut = new Date(reservation.checkOut);
 
-    if (checkIn > now) return RESERVATION_STATUS.UPCOMING;
-    if (checkIn <= now && checkOut > now) return RESERVATION_STATUS.ACTIVE;
+    if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
+      return getStatusConstant("PAST");
+    }
 
-    return "PAST";
+    if (checkIn > now) {
+      return getStatusConstant("UPCOMING");
+    }
+
+    if (checkIn <= now && checkOut > now) {
+      return getStatusConstant("ACTIVE");
+    }
+
+    return getStatusConstant("PAST");
   }
 
   function canCancelReservation(reservation) {
     const status = getReservationStatus(reservation);
 
-    if (status === RESERVATION_STATUS.CANCELLED) return false;
+    if (isSameStatus(status, API_RESERVATION_STATUS.CANCELLED)) {
+      return false;
+    }
 
-    /**
-     * This matches your current backend rule:
-     * any user can cancel only if the reservation is more than 24 hours
-     * before check-in.
-     *
-     * If later you want STAFF to cancel any reservation, the backend must also
-     * be changed to receive/authenticate the user role.
-     */
-    if (status !== RESERVATION_STATUS.UPCOMING) return false;
+    if (!isSameStatus(status, API_RESERVATION_STATUS.UPCOMING)) {
+      return false;
+    }
 
     const now = new Date();
     const checkIn = new Date(reservation.checkIn);
+
+    if (Number.isNaN(checkIn.getTime())) {
+      return false;
+    }
 
     const diffMs = checkIn.getTime() - now.getTime();
     const diffHours = diffMs / (1000 * 60 * 60);
@@ -112,9 +160,17 @@ export default function Reservations() {
   function canEditReservation(reservation) {
     const status = getReservationStatus(reservation);
 
-    if (status === RESERVATION_STATUS.CANCELLED) return false;
-    if (status === RESERVATION_STATUS.ACTIVE) return false;
-    if (status === "PAST") return false;
+    if (isSameStatus(status, API_RESERVATION_STATUS.CANCELLED)) {
+      return false;
+    }
+
+    if (isSameStatus(status, API_RESERVATION_STATUS.ACTIVE)) {
+      return false;
+    }
+
+    if (isSameStatus(status, API_RESERVATION_STATUS.PAST)) {
+      return false;
+    }
 
     return true;
   }
@@ -133,9 +189,7 @@ export default function Reservations() {
       toast.success("Reservation cancelled successfully");
       fetchReservations(selectedStatus);
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Could not cancel reservation",
-      );
+      toast.error(getErrorMessage(error, "Could not cancel reservation"));
     }
   }
 
@@ -184,8 +238,10 @@ export default function Reservations() {
       fetchReservations(selectedStatus);
     } catch (error) {
       toast.error(
-        error.response?.data?.message ||
+        getErrorMessage(
+          error,
           "The room is not available for the selected dates.",
+        ),
       );
     }
   }
@@ -217,7 +273,8 @@ export default function Reservations() {
       <div className="rounded-3xl bg-white p-2 shadow-sm">
         <div className="grid gap-2 sm:grid-cols-3">
           {STATUS_TABS.map((tab) => {
-            const isActive = selectedStatus === tab.value;
+            const isActive =
+              normalizeStatus(selectedStatus) === normalizeStatus(tab.value);
 
             return (
               <button

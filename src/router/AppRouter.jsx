@@ -3,6 +3,7 @@ import {
   ProtectedRoute,
   PlaceholderPage,
   PublicRoute,
+  RoleRoute,
 } from "../utils/functions";
 
 import AuthLayout from "../layouts/AuthLayout";
@@ -40,9 +41,33 @@ export default function AppRouter() {
         }
       >
         <Route path="/home" element={<Home />} />
-        <Route path="/users" element={<PlaceholderPage title="Users" />} />
-        <Route path="/rooms" element={<Rooms />} />
-        <Route path="/reservations" element={<Reservations />} />
+
+        <Route
+          path="/users"
+          element={
+            <RoleRoute allowedRoles={["STAFF"]}>
+              <PlaceholderPage title="Users" />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/rooms"
+          element={
+            <RoleRoute allowedRoles={["STAFF"]}>
+              <Rooms />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/reservations"
+          element={
+            <RoleRoute allowedRoles={["STAFF", "GUEST"]}>
+              <Reservations />
+            </RoleRoute>
+          }
+        />
       </Route>
 
       <Route path="*" element={<Navigate to="/home" replace />} />

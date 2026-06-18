@@ -1,4 +1,5 @@
 import ReservationCard from "./ReservationCard";
+import { RESERVATION_STATUS } from "../../../utils/utils";
 
 export default function ReservationSection({
   title,
@@ -29,18 +30,25 @@ export default function ReservationSection({
         </div>
       ) : (
         <div className="grid gap-4">
-          {reservations.map((reservation) => (
-            <ReservationCard
-              key={reservation.id}
-              reservation={reservation}
-              isStaff={isStaff}
-              status={getReservationStatus(reservation)}
-              canCancel={canCancelReservation(reservation)}
-              canEdit={canEditReservation(reservation)}
-              onCancel={() => onCancel(reservation)}
-              onEdit={() => onEdit(reservation)}
-            />
-          ))}
+          {reservations.map((reservation) => {
+            const status = getReservationStatus(reservation);
+            const isCancelled = status === RESERVATION_STATUS.CANCELLED;
+            console.log('isCancelled', isCancelled)
+            console.log('status',  status)
+            return (
+              <ReservationCard
+                key={reservation.id}
+                reservation={reservation}
+                isStaff={isStaff}
+                status={status}
+                isCancelled={isCancelled}
+                canCancel={canCancelReservation(reservation)}
+                canEdit={canEditReservation(reservation)}
+                onCancel={() => onCancel(reservation)}
+                onEdit={() => onEdit(reservation)}
+              />
+            );
+          })}
         </div>
       )}
     </section>
