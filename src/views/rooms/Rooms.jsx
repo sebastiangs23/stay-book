@@ -4,14 +4,13 @@ import {
   FiEyeOff,
   FiImage,
   FiPlus,
-  FiRefreshCcw,
   FiSearch,
   FiTrash2,
   FiUpload,
   FiX,
 } from "react-icons/fi";
-import { Flip, toast } from 'react-toastify';
-
+import ModalConfirmation from "../../../shared/modals/ModalConfirmation";
+import { Flip, toast } from "react-toastify";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -32,6 +31,9 @@ export default function Rooms() {
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+
   const [showForm, setShowForm] = useState(false);
 
   const [editingRoom, setEditingRoom] = useState(null);
@@ -39,6 +41,12 @@ export default function Rooms() {
 
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
+
+  const [confirmation, setConfirmation] = useState({
+    isOpen: false,
+    type: null,
+    roomId: null,
+  });
 
   const isEditing = Boolean(editingRoom);
 
@@ -49,9 +57,22 @@ export default function Rooms() {
     }));
   }, [selectedFiles]);
 
+  const totalItems = meta?.total || 0;
+
+  const totalPages =
+    meta?.totalPages ||
+    meta?.lastPage ||
+    Math.max(1, Math.ceil(totalItems / limit));
+
+  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+
   useEffect(() => {
-    fetchRooms();
-  }, []);
+    const timeoutId = setTimeout(() => {
+      fetchRooms(search, page, limit);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [search, page, limit]);
 
   useEffect(() => {
     return () => {
@@ -59,7 +80,11 @@ export default function Rooms() {
     };
   }, [selectedPreviews]);
 
-  async function fetchRooms(queryValue = search) {
+  async function fetchRooms(
+    queryValue = search,
+    pageValue = page,
+    limitValue = limit,
+  ) {
     try {
       setLoading(true);
       setError("");
@@ -70,8 +95,8 @@ export default function Rooms() {
         params.append("search", queryValue.trim());
       }
 
-      params.append("page", "1");
-      params.append("limit", "20");
+      params.append("page", String(pageValue));
+      params.append("limit", String(Math.min(Number(limitValue), 20)));
 
       const response = await fetch(`${API_URL}/rooms?${params.toString()}`);
 
@@ -165,17 +190,10 @@ export default function Rooms() {
       formData.append("floor", String(form.floor));
       formData.append("isActive", String(form.isActive));
 
-      /**
-       * When editing, these are the old image URLs that should stay.
-       * Removed images are NOT sent, so the backend can delete them from S3.
-       */
       if (isEditing) {
         formData.append("photosToKeep", JSON.stringify(existingPhotos));
       }
 
-      /**
-       * New image files.
-       */
       selectedFiles.forEach((file) => {
         formData.append("photos", file);
       });
@@ -197,69 +215,129 @@ export default function Rooms() {
         );
       }
 
-      await fetchRooms();
+      await fetchRooms(search, page, limit);
       closeForm();
-    } catch (error) {
-      setError(error.message || "Something went wrong");
-    } finally {
+
       toast.success("Successful !!", {
         position: "top-center",
         autoClose: 2000,
         theme: "light",
-        transition: Flip
+        transition: Flip,
       });
+    } catch (error) {
+      setError(error.message || "Something went wrong");
+
+      toast.error(error.message || "Something went wrong", {
+        position: "top-center",
+        autoClose: 2000,
+        theme: "light",
+        transition: Flip,
+      });
+    } finally {
       setSaving(false);
     }
   }
 
-  async function handleDeactivate(roomId) {
-    const confirmed = window.confirm("Do you want to deactivate this room?");
-
-    if (!confirmed) return;
-
-    try {
-      setError("");
-
-      const response = await fetch(`${API_URL}/rooms/${roomId}/deactivate`, {
-        method: "PATCH",
-      });
-
-      if (!response.ok) {
-        throw new Error("Error deactivating room");
-      }
-
-      await fetchRooms();
-    } catch (error) {
-      setError(error.message || "Something went wrong");
-    }
+  function handleDeactivate(roomId) {
+    setConfirmation({
+      isOpen: true,
+      type: "deactivate",
+      roomId,
+    });
   }
 
-  async function handleDelete(roomId) {
-    const confirmed = window.confirm(
-      "Do you want to delete this room? This will also delete its images from S3.",
-    );
+  function handleDelete(roomId) {
+    setConfirmation({
+      isOpen: true,
+      type: "delete",
+      roomId,
+    });
+  }
 
-    if (!confirmed) return;
+  async function handleConfirmAction() {
+    if (!confirmation.roomId || !confirmation.type) return;
 
     try {
+      setSaving(true);
       setError("");
 
-      const response = await fetch(`${API_URL}/rooms/${roomId}`, {
-        method: "DELETE",
-      });
+      const isDelete = confirmation.type === "delete";
+
+      const url = isDelete
+        ? `${API_URL}/rooms/${confirmation.roomId}`
+        : `${API_URL}/rooms/${confirmation.roomId}/deactivate`;
+
+      const method = isDelete ? "DELETE" : "PATCH";
+
+      const response = await fetch(url, { method });
 
       if (!response.ok) {
-        throw new Error("Error deleting room");
+        throw new Error(
+          isDelete ? "Error deleting room" : "Error deactivating room",
+        );
       }
 
-      await fetchRooms();
+      await fetchRooms(search, page, limit);
+
+      setConfirmation({
+        isOpen: false,
+        type: null,
+        roomId: null,
+      });
+
+      toast.success(
+        isDelete
+          ? "Room deleted successfully"
+          : "Room deactivated successfully",
+        {
+          position: "top-center",
+          autoClose: 2000,
+          theme: "light",
+          transition: Flip,
+        },
+      );
     } catch (error) {
       setError(error.message || "Something went wrong");
+
+      toast.error(error.message || "Something went wrong", {
+        position: "top-center",
+        autoClose: 2000,
+        theme: "light",
+        transition: Flip,
+      });
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
     <div className="pb-24 md:pb-10">
+      <ModalConfirmation
+        isOpen={confirmation.isOpen}
+        title={
+          confirmation.type === "delete" ? "Delete room?" : "Deactivate room?"
+        }
+        message={
+          confirmation.type === "delete"
+            ? "This action will delete the room and its images from S3. This cannot be undone."
+            : "This action will deactivate the room. You can activate it again later if your backend supports it."
+        }
+        confirmText={
+          confirmation.type === "delete" ? "Delete room" : "Deactivate room"
+        }
+        cancelText="Cancel"
+        variant={confirmation.type === "delete" ? "danger" : "warning"}
+        loading={saving}
+        onCancel={() =>
+          setConfirmation({
+            isOpen: false,
+            type: null,
+            roomId: null,
+          })
+        }
+        onConfirm={handleConfirmAction}
+      />
+
       <section className="rounded-[2rem] bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -272,8 +350,8 @@ export default function Rooms() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Create, update, deactivate, and delete hotel rooms. Room photos
-              are uploaded directly to your S3 bucket through the backend.
+              This is the administrator panel to create, update, deactivate and
+              delete rooms.
             </p>
           </div>
 
@@ -290,25 +368,50 @@ export default function Rooms() {
         <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto]">
           <div className="flex items-center gap-3 rounded-2xl bg-slate-100 px-4 py-3">
             <FiSearch className="text-slate-500" />
+
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") fetchRooms();
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
               }}
-              placeholder="Search rooms by name or description"
+              placeholder="Search rooms by name"
               className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
             />
+
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setPage(1);
+                }}
+                className="text-slate-500 transition hover:text-slate-800"
+              >
+                <FiX />
+              </button>
+            )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => fetchRooms()}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            <FiRefreshCcw />
-            Search
-          </button>
+          <div className="flex items-center gap-2 rounded-2xl bg-slate-100 px-4 py-3">
+            <span className="text-sm font-medium text-slate-600">Show</span>
+
+            <select
+              value={limit}
+              onChange={(event) => {
+                setLimit(Number(event.target.value));
+                setPage(1);
+              }}
+              className="bg-transparent text-sm font-semibold text-slate-800 outline-none"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={15}>15</option>
+              <option value={20}>20</option>
+            </select>
+
+            <span className="text-sm font-medium text-slate-600">items</span>
+          </div>
         </div>
 
         {error && (
@@ -426,9 +529,11 @@ export default function Rooms() {
 
               <label className="flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 px-5 py-8 text-center transition hover:bg-slate-100">
                 <FiUpload className="mb-3 text-2xl text-slate-500" />
+
                 <p className="text-sm font-semibold text-slate-800">
                   Upload room photos
                 </p>
+
                 <p className="mt-1 text-xs text-slate-500">
                   PNG, JPG, WEBP. You can select multiple images.
                 </p>
@@ -528,6 +633,7 @@ export default function Rooms() {
             <h2 className="text-2xl font-bold tracking-tight text-slate-950">
               Rooms list
             </h2>
+
             <p className="mt-1 text-sm text-slate-500">
               {meta ? `${meta.total} rooms found` : "Manage your inventory"}
             </p>
@@ -552,6 +658,7 @@ export default function Rooms() {
             </div>
 
             <h3 className="text-lg font-bold text-slate-950">No rooms found</h3>
+
             <p className="mt-2 text-sm text-slate-500">
               Create your first room to start managing hotel inventory.
             </p>
@@ -559,94 +666,141 @@ export default function Rooms() {
         )}
 
         {!loading && rooms.length > 0 && (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {rooms.map((room) => {
-              const image =
-                room.photos?.[0] ||
-                "https://technical-test-abu-dhabi.s3.us-east-1.amazonaws.com/room.jpg";
+          <>
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {rooms.map((room) => {
+                const image =
+                  room.photos?.[0] ||
+                  "https://technical-test-abu-dhabi.s3.us-east-1.amazonaws.com/room.jpg";
 
-              return (
-                <article
-                  key={room.id}
-                  className="overflow-hidden rounded-[2rem] bg-white shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <div className="relative h-56 bg-slate-100">
-                    <img
-                      src={image}
-                      alt={room.name}
-                      className="h-full w-full object-cover"
-                    />
+                return (
+                  <article
+                    key={room.id}
+                    className="overflow-hidden rounded-[2rem] bg-white shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <div className="relative h-56 bg-slate-100">
+                      <img
+                        src={image}
+                        alt={room.name}
+                        className="h-full w-full object-cover"
+                      />
 
-                    <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-slate-700">
-                      Floor {room.floor}
+                      <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-slate-700">
+                        Floor {room.floor}
+                      </div>
+
+                      <div
+                        className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-bold ${
+                          room.isActive
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {room.isActive ? "Active" : "Inactive"}
+                      </div>
                     </div>
 
-                    <div
-                      className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-bold ${
-                        room.isActive
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {room.isActive ? "Active" : "Inactive"}
-                    </div>
-                  </div>
+                    <div className="p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-950">
+                            {room.name}
+                          </h3>
 
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-lg font-bold text-slate-950">
-                          {room.name}
-                        </h3>
+                          <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">
+                            {room.description}
+                          </p>
+                        </div>
 
-                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">
-                          {room.description}
+                        <p className="whitespace-nowrap text-base font-bold text-slate-950">
+                          ${Number(room.price).toFixed(2)}
                         </p>
                       </div>
 
-                      <p className="whitespace-nowrap text-base font-bold text-slate-950">
-                        ${Number(room.price).toFixed(2)}
-                      </p>
+                      <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+                        <FiImage />
+                        <span>{room.photos?.length || 0} photos</span>
+                      </div>
+
+                      <div className="mt-5 grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(room)}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-100 px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+                        >
+                          <FiEdit2 />
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeactivate(room.id)}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-50 px-3 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
+                        >
+                          <FiEyeOff />
+                          Off
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(room.id)}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-50 px-3 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+                        >
+                          <FiTrash2 />
+                          Delete
+                        </button>
+                      </div>
                     </div>
+                  </article>
+                );
+              })}
+            </div>
 
-                    <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
-                      <FiImage />
-                      <span>{room.photos?.length || 0} photos</span>
-                    </div>
+            {totalPages > 1 && (
+              <div className="mt-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
+                <p className="text-sm text-slate-500">
+                  Page {page} of {totalPages}
+                </p>
 
-                    <div className="mt-5 grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEditForm(room)}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-100 px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-                      >
-                        <FiEdit2 />
-                        Edit
-                      </button>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button
+                    type="button"
+                    disabled={page === 1}
+                    onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                    className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeactivate(room.id)}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-50 px-3 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
-                      >
-                        <FiEyeOff />
-                        Off
-                      </button>
+                  {pages.map((pageNumber) => (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      onClick={() => setPage(pageNumber)}
+                      className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                        page === pageNumber
+                          ? "bg-black text-white"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
 
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(room.id)}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-50 px-3 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100"
-                      >
-                        <FiTrash2 />
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                  <button
+                    type="button"
+                    disabled={page === totalPages}
+                    onClick={() =>
+                      setPage((prev) => Math.min(prev + 1, totalPages))
+                    }
+                    className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </section>
     </div>

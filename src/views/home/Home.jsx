@@ -45,7 +45,7 @@ export default function Home() {
 
   return (
     <div className="pb-24 md:pb-10">
-      <section className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
+      <section className="">
         <div className="relative overflow-hidden rounded-[2rem] bg-slate-950 p-6 text-white shadow-xl sm:p-8 lg:min-h-[430px]">
           <img
             src={roomImages[0]}
@@ -100,64 +100,6 @@ export default function Home() {
           </div>
         </div>
 
-        <aside className="rounded-[2rem] bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-950">Your modules</h2>
-              <p className="text-sm text-slate-500">Loaded from your backend</p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100">
-              <FiHome className="text-slate-700" />
-            </div>
-          </div>
-
-          {loading && (
-            <div className="space-y-3">
-              {[1, 2, 3].map((item) => (
-                <div
-                  key={item}
-                  className="h-20 animate-pulse rounded-3xl bg-slate-100"
-                />
-              ))}
-            </div>
-          )}
-
-          {error && (
-            <div className="rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          {!loading && !error && activeSubmodules.length === 0 && (
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
-              No active submodules available.
-            </div>
-          )}
-
-          {!loading && !error && activeSubmodules.length > 0 && (
-            <div className="space-y-3">
-              {activeSubmodules.map((item) => (
-                <Link
-                  key={item.id}
-                  to={getSubmodulePath(item.name)}
-                  className="group flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <div>
-                    <p className="font-semibold text-slate-950">{item.name}</p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {item.isPrivate ? "Private access" : "Public access"}
-                    </p>
-                  </div>
-
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 transition group-hover:bg-black group-hover:text-white">
-                    <FiArrowRight />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </aside>
       </section>
 
       <section className="mt-8">
@@ -208,7 +150,8 @@ export default function Home() {
           />
         </div>
       </section>
-
+      
+      {/* TODO: Make it dynamic and bring real data */}
       <section className="mt-8 grid gap-5 md:grid-cols-3">
         <StatCard
           icon={<FiHome />}
@@ -222,13 +165,6 @@ export default function Home() {
           title="Reservations"
           value="Live"
           description="Track guest bookings"
-        />
-
-        <StatCard
-          icon={<FiUsers />}
-          title="Users"
-          value="Roles"
-          description="Guest and staff access"
         />
       </section>
     </div>
