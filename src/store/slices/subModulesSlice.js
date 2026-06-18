@@ -38,12 +38,12 @@ const submodulesSlice = createSlice({
       .addCase(fetchSubmodules.fulfilled, (state, action) => {
         state.loading = false;
 
-        /**
-         * Your API returns:
-         * {
-         *   data: [...]
-         * }
-         */
+        const currentUser = JSON.parse(localStorage.getItem('staybook_user'));
+
+        if(action.payload?.data && currentUser.role === "GUEST"){
+          action.payload.data = action.payload.data.filter((sub) => !sub.isPrivate);
+        }
+
         state.submodules = action.payload?.data || [];
       })
       .addCase(fetchSubmodules.rejected, (state, action) => {

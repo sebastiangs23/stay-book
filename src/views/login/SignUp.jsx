@@ -15,6 +15,7 @@ export default function SignUp() {
     role: "GUEST",
     password: "",
     confirmPassword: "",
+    isActive: true
   });
 
   const [errors, setErrors] = useState({});
@@ -96,6 +97,7 @@ export default function SignUp() {
         role: inputs.role,
         email: inputs.email.trim(),
         password: inputs.password,
+        isActive: inputs.isActive,
       }),
     );
   };
