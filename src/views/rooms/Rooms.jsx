@@ -11,6 +11,7 @@ import {
 } from "react-icons/fi";
 import ModalConfirmation from "../../../shared/modals/ModalConfirmation";
 import { Flip, toast } from "react-toastify";
+import axiosClient from "../../api/axiosClient";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -204,7 +205,7 @@ export default function Rooms() {
 
       const method = isEditing ? "PATCH" : "POST";
 
-      const response = await fetch(url, {
+      const response = await axiosClient(url, {
         method,
         body: formData,
       });
@@ -238,22 +239,6 @@ export default function Rooms() {
     }
   }
 
-  function handleDeactivate(roomId) {
-    setConfirmation({
-      isOpen: true,
-      type: "deactivate",
-      roomId,
-    });
-  }
-
-  function handleDelete(roomId) {
-    setConfirmation({
-      isOpen: true,
-      type: "delete",
-      roomId,
-    });
-  }
-
   async function handleConfirmAction() {
     if (!confirmation.roomId || !confirmation.type) return;
 
@@ -263,18 +248,10 @@ export default function Rooms() {
 
       const isDelete = confirmation.type === "delete";
 
-      const url = isDelete
-        ? `${API_URL}/rooms/${confirmation.roomId}`
-        : `${API_URL}/rooms/${confirmation.roomId}/deactivate`;
-
-      const method = isDelete ? "DELETE" : "PATCH";
-
-      const response = await fetch(url, { method });
-
-      if (!response.ok) {
-        throw new Error(
-          isDelete ? "Error deleting room" : "Error deactivating room",
-        );
+      if (isDelete) {
+        await axiosClient.delete(`/rooms/${confirmation.roomId}`);
+      } else {
+        await axiosClient.patch(`/rooms/${confirmation.roomId}/deactivate`);
       }
 
       await fetchRooms(search, page, limit);
@@ -297,9 +274,14 @@ export default function Rooms() {
         },
       );
     } catch (error) {
-      setError(error.message || "Something went wrong");
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Something went wrong";
 
-      toast.error(error.message || "Something went wrong", {
+      setError(message);
+
+      toast.error(message, {
         position: "top-center",
         autoClose: 2000,
         theme: "light",
@@ -308,6 +290,22 @@ export default function Rooms() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleDeactivate(roomId) {
+    setConfirmation({
+      isOpen: true,
+      type: "deactivate",
+      roomId,
+    });
+  }
+
+  function handleDelete(roomId) {
+    setConfirmation({
+      isOpen: true,
+      type: "delete",
+      roomId,
+    });
   }
 
   return (
