@@ -195,7 +195,7 @@ export default function Home() {
 
     loadRooms(page + 1);
   };
-
+  console.log('startDate', startDate)
   return (
     <div className="pb-24 md:pb-10">
       <ReservationModal
@@ -265,7 +265,7 @@ export default function Home() {
                     <label className="text-xs font-medium text-slate-500">
                       Date range
                     </label>
-
+                    
                     <DatePicker
                       selectsRange
                       startDate={startDate}

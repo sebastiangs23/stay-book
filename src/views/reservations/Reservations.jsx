@@ -15,6 +15,8 @@ export default function Reservations() {
   const isStaff = user?.role === "STAFF";
   const isGuest = user?.role === "GUEST";
 
+  const today = new Date().toISOString().split("T")[0];
+
   useEffect(() => {
     if (!user?.id) return;
 
@@ -105,8 +107,11 @@ export default function Reservations() {
   function openEditModal(reservation) {
     setEditingReservation(reservation);
 
-    setEditCheckIn(formatDateForInput(reservation.checkIn));
-    setEditCheckOut(formatDateForInput(reservation.checkOut));
+    const reservationCheckIn = formatDateForInput(reservation.checkIn);
+    const reservationCheckOut = formatDateForInput(reservation.checkOut);
+
+    setEditCheckIn(reservationCheckIn < today ? today : reservationCheckIn);
+    setEditCheckOut(reservationCheckOut);
     setEditNumberOfGuest(reservation.numberOfGuest || 1);
   }
 
@@ -229,6 +234,7 @@ export default function Reservations() {
 
                 <input
                   type="date"
+                  min={today}
                   value={editCheckIn}
                   onChange={(event) => {
                     setEditCheckIn(event.target.value);
@@ -252,6 +258,7 @@ export default function Reservations() {
 
                 <input
                   type="date"
+                  min={today}
                   value={editCheckOut}
                   min={editCheckIn}
                   disabled={!editCheckIn}
@@ -315,6 +322,7 @@ export default function Reservations() {
   );
 }
 
+//TODO: COMPONENTIZATE THIS
 function ReservationSection({
   title,
   reservations,
