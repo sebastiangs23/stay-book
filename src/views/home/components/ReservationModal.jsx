@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { FiCalendar, FiImage, FiUsers, FiX } from "react-icons/fi";
-import { Flip, toast } from "react-toastify";
 
 export default function ReservationModal({
   isOpen,

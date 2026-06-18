@@ -1,5 +1,9 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { ProtectedRoute, PlaceholderPage, PublicRoute } from "../utils/functions";
+import {
+  ProtectedRoute,
+  PlaceholderPage,
+  PublicRoute,
+} from "../utils/functions";
 
 import AuthLayout from "../layouts/AuthLayout";
 import MainLayout from "../layouts/MainLayout";
@@ -8,6 +12,7 @@ import SignIn from "../views/login/SignIn";
 import SignUp from "../views/login/SignUp";
 import Home from "../views/home/Home";
 import Rooms from "../views/rooms/Rooms";
+import Reservations from "../views/reservations/Reservations";
 
 export default function AppRouter() {
   return (
@@ -37,10 +42,7 @@ export default function AppRouter() {
         <Route path="/home" element={<Home />} />
         <Route path="/users" element={<PlaceholderPage title="Users" />} />
         <Route path="/rooms" element={<Rooms />} />
-        <Route
-          path="/reservations"
-          element={<PlaceholderPage title="Reservations" />}
-        />
+        <Route path="/reservations" element={<Reservations />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/home" replace />} />

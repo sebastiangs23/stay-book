@@ -1,4 +1,4 @@
-import { FiHeart, FiStar } from "react-icons/fi";
+import { FiStar } from "react-icons/fi";
 
 export default function RoomCard({
   image,
@@ -20,17 +20,6 @@ export default function RoomCard({
           alt={title}
           className="h-64 w-full object-cover transition duration-500 group-hover:scale-105"
         />
-
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            // favorite logic here later
-          }}
-          className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-slate-800 shadow-sm backdrop-blur-md"
-        >
-          <FiHeart />
-        </button>
       </div>
 
       <div className="px-2 pb-3 pt-4">
