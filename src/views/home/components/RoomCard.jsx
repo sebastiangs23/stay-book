@@ -7,9 +7,13 @@ export default function RoomCard({
   price,
   total,
   rating,
+  onClick,
 }) {
   return (
-    <article className="group overflow-hidden rounded-[1.75rem] bg-white p-3 shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-1 hover:shadow-xl">
+    <article
+      onClick={onClick}
+      className="group cursor-pointer overflow-hidden rounded-[1.75rem] bg-white p-3 shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-1 hover:shadow-xl"
+    >
       <div className="relative overflow-hidden rounded-[1.4rem]">
         <img
           src={image}
@@ -19,6 +23,10 @@ export default function RoomCard({
 
         <button
           type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            // favorite logic here later
+          }}
           className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-slate-800 shadow-sm backdrop-blur-md"
         >
           <FiHeart />
@@ -32,16 +40,18 @@ export default function RoomCard({
             <p className="mt-1 text-sm text-slate-500">{description}</p>
           </div>
 
-          <div className="flex items-center gap-1 text-sm font-semibold text-slate-900">
-            <FiStar className="fill-slate-900" size={14} />
-            {rating}
-          </div>
+          {rating && (
+            <div className="flex items-center gap-1 text-sm font-semibold text-slate-900">
+              <FiStar className="fill-slate-900" size={14} />
+              {rating}
+            </div>
+          )}
         </div>
 
         <div className="mt-3 flex items-center gap-2 text-sm">
           <span className="font-bold text-slate-950">{price}</span>
-          <span className="text-slate-400 line-through">C$117</span>
-          <span className="text-slate-500">· {total}</span>
+
+          {total && <span className="text-slate-500">· {total}</span>}
         </div>
       </div>
     </article>

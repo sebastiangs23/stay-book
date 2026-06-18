@@ -15,6 +15,9 @@ import { fetchRooms } from "../../store/slices/roomsSlice";
 
 import RoomCard from "./components/RoomCard";
 import StatCard from "./components/StatCard";
+import ReservationModal from "./components/ReservationModal";
+import axiosClient from "../../api/axiosClient";
+import { Flip, toast } from "react-toastify";
 
 const roomImages = [
   "https://technical-test-abu-dhabi.s3.us-east-1.amazonaws.com/room.jpg",
@@ -71,6 +74,14 @@ export default function Home() {
   const hasPreviousPage = page > 1;
   const hasNextPage = page < totalPages;
 
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [reservationLoading, setReservationLoading] = useState(false);
+
+  const storedUser = JSON.parse(
+    localStorage.getItem("staybook_user") || "null",
+  );
+  const userId = user?.id || storedUser?.id;
+
   useEffect(() => {
     dispatch(fetchSubmodules());
 
@@ -124,6 +135,40 @@ export default function Home() {
     loadRooms(1);
   };
 
+  async function handleCreateReservation(payload) {
+    try {
+      if (!userId) {
+        throw new Error("You need to login before making a reservation.");
+      }
+
+      setReservationLoading(true);
+      setFormError("");
+
+      await axiosClient.post("/reservations", {
+        ...payload,
+        userId,
+      });
+      setSelectedRoom(null);
+
+      dispatch(fetchRooms(buildParams(page)));
+    } catch (error) {
+      setFormError(
+        error.response?.data?.message ||
+          error.message ||
+          "Something went wrong",
+      );
+      toast.error("This room is already reserved. Use the filters to find an available one.", {
+        position: "top-center",
+        autoClose: 4000,
+        theme: "light",
+        transition: Flip,
+      });
+
+    } finally {
+      setReservationLoading(false);
+    }
+  }
+
   const handleClearFilters = () => {
     setSearch("");
     setDateRange([null, null]);
@@ -153,6 +198,15 @@ export default function Home() {
 
   return (
     <div className="pb-24 md:pb-10">
+      <ReservationModal
+        isOpen={Boolean(selectedRoom)}
+        room={selectedRoom}
+        userId={userId}
+        loading={reservationLoading}
+        onClose={() => setSelectedRoom(null)}
+        onConfirm={handleCreateReservation}
+      />
+
       <section>
         <div className="relative overflow-hidden rounded-[2rem] bg-slate-950 p-6 text-white shadow-xl sm:p-8 lg:min-h-[430px]">
           <img
@@ -363,13 +417,14 @@ export default function Home() {
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {rooms.map((room, index) => (
               <RoomCard
+                onClick={() => setSelectedRoom(room)}
                 key={room.id}
                 image={getRoomImage(room, index)}
                 title={room.name}
                 description={room.description}
                 price={formatPrice(room.price)}
                 total={`Floor ${room.floor}`}
-                rating="4.90"
+                // rating="4.90"
               />
             ))}
           </div>
