@@ -1,5 +1,4 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-// import { useSelector } from "react-redux";
 import { ProtectedRoute, PlaceholderPage, PublicRoute } from "../utils/functions";
 
 import AuthLayout from "../layouts/AuthLayout";
