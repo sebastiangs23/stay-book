@@ -1,6 +1,20 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axiosClient from "../../api/axiosClient";
 
+const normalizeRoomsResponse = (payload) => {
+  if (Array.isArray(payload)) {
+    return {
+      data: payload,
+      meta: null,
+    };
+  }
+
+  return {
+    data: payload?.data || [],
+    meta: payload?.meta || null,
+  };
+};
+
 export const fetchRooms = createAsyncThunk(
   "rooms/fetchRooms",
   async (params = {}, { rejectWithValue }) => {
@@ -61,10 +75,7 @@ export const deactivateRoom = createAsyncThunk(
   "rooms/deactivateRoom",
   async (roomId, { rejectWithValue }) => {
     try {
-      const response = await axiosClient.patch(`/rooms/${roomId}`, {
-        isActive: false,
-      });
-
+      const response = await axiosClient.patch(`/rooms/${roomId}/deactivate`);
       return response.data;
     } catch (error) {
       return rejectWithValue(
@@ -77,6 +88,7 @@ export const deactivateRoom = createAsyncThunk(
 const initialState = {
   rooms: [],
   selectedRoom: null,
+  meta: null,
   loading: false,
   error: null,
 };
@@ -101,7 +113,11 @@ const roomsSlice = createSlice({
       })
       .addCase(fetchRooms.fulfilled, (state, action) => {
         state.loading = false;
-        state.rooms = action.payload;
+
+        const normalized = normalizeRoomsResponse(action.payload);
+
+        state.rooms = normalized.data;
+        state.meta = normalized.meta;
       })
       .addCase(fetchRooms.rejected, (state, action) => {
         state.loading = false;
@@ -126,11 +142,17 @@ const roomsSlice = createSlice({
       })
 
       .addCase(createRoom.fulfilled, (state, action) => {
-        state.rooms.push(action.payload);
+        const room = action.payload?.room || action.payload;
+
+        if (room?.id) {
+          state.rooms.push(room);
+        }
       })
 
       .addCase(updateRoom.fulfilled, (state, action) => {
-        const updatedRoom = action.payload;
+        const updatedRoom = action.payload?.room || action.payload;
+
+        if (!updatedRoom?.id) return;
 
         state.rooms = state.rooms.map((room) =>
           room.id === updatedRoom.id ? updatedRoom : room,
@@ -142,7 +164,9 @@ const roomsSlice = createSlice({
       })
 
       .addCase(deactivateRoom.fulfilled, (state, action) => {
-        const updatedRoom = action.payload;
+        const updatedRoom = action.payload?.room || action.payload;
+
+        if (!updatedRoom?.id) return;
 
         state.rooms = state.rooms.map((room) =>
           room.id === updatedRoom.id ? updatedRoom : room,
