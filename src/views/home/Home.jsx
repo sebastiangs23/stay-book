@@ -157,13 +157,15 @@ export default function Home() {
           error.message ||
           "Something went wrong",
       );
-      toast.error("This room is already reserved. Use the filters to find an available one.", {
-        position: "top-center",
-        autoClose: 4000,
-        theme: "light",
-        transition: Flip,
-      });
-
+      toast.error(
+        "This room is already reserved. Use the filters to find an available one.",
+        {
+          position: "top-center",
+          autoClose: 4000,
+          theme: "light",
+          transition: Flip,
+        },
+      );
     } finally {
       setReservationLoading(false);
     }
@@ -195,7 +197,7 @@ export default function Home() {
 
     loadRooms(page + 1);
   };
-  console.log('startDate', startDate)
+
   return (
     <div className="pb-24 md:pb-10">
       <ReservationModal
@@ -265,7 +267,7 @@ export default function Home() {
                     <label className="text-xs font-medium text-slate-500">
                       Date range
                     </label>
-                    
+
                     <DatePicker
                       selectsRange
                       startDate={startDate}
@@ -415,18 +417,19 @@ export default function Home() {
 
         {!loading && !error && rooms.length > 0 && (
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {rooms.map((room, index) => (
-              <RoomCard
-                onClick={() => setSelectedRoom(room)}
-                key={room.id}
-                image={getRoomImage(room, index)}
-                title={room.name}
-                description={room.description}
-                price={formatPrice(room.price)}
-                total={`Floor ${room.floor}`}
-                // rating="4.90"
-              />
-            ))}
+            {rooms
+              .filter((room) => storedUser.role === "STAFF" || room.isActive)
+              .map((room, index) => (
+                <RoomCard
+                  onClick={() => setSelectedRoom(room)}
+                  key={room.id}
+                  image={getRoomImage(room, index)}
+                  title={room.name}
+                  description={room.description}
+                  price={formatPrice(room.price)}
+                  total={`Floor ${room.floor}`}
+                />
+              ))}
           </div>
         )}
       </section>
