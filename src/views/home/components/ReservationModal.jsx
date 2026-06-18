@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FiCalendar, FiImage, FiX } from "react-icons/fi";
+import { FiCalendar, FiImage, FiUsers, FiX } from "react-icons/fi";
 import { Flip, toast } from "react-toastify";
 
 export default function ReservationModal({
@@ -12,11 +12,13 @@ export default function ReservationModal({
 }) {
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
+  const [numberOfGuest, setNumberOfGuest] = useState(1);
 
   useEffect(() => {
     if (isOpen) {
       setCheckIn("");
       setCheckOut("");
+      setNumberOfGuest(1);
     }
   }, [isOpen]);
 
@@ -38,7 +40,13 @@ export default function ReservationModal({
   const today = new Date().toISOString().split("T")[0];
 
   const canConfirm = Boolean(
-    room?.id && userId && checkIn && checkOut && nights > 0,
+    room?.id &&
+    userId &&
+    checkIn &&
+    checkOut &&
+    nights > 0 &&
+    numberOfGuest >= 1 &&
+    numberOfGuest <= 15,
   );
 
   if (!isOpen || !room) return null;
@@ -55,6 +63,7 @@ export default function ReservationModal({
       userId,
       checkIn,
       checkOut,
+      numberOfGuest,
     });
   }
 
@@ -165,6 +174,36 @@ export default function ReservationModal({
             </div>
           </div>
 
+          <div className="mt-4">
+            <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <FiUsers />
+              Number of guests
+            </label>
+
+            <input
+              type="number"
+              min={1}
+              max={15}
+              value={numberOfGuest}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+
+                if (value > 15) {
+                  setNumberOfGuest(15);
+                  return;
+                }
+
+                if (value < 1) {
+                  setNumberOfGuest(1);
+                  return;
+                }
+
+                setNumberOfGuest(value);
+              }}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+            />
+          </div>
+
           <div className="mt-6 rounded-3xl bg-slate-50 p-5">
             <div className="flex items-center justify-between text-sm text-slate-600">
               <span>Price per night</span>
@@ -174,6 +213,11 @@ export default function ReservationModal({
             <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
               <span>Nights</span>
               <span className="font-semibold">{nights}</span>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
+              <span>Guests</span>
+              <span className="font-semibold">{numberOfGuest}</span>
             </div>
 
             <div className="mt-4 border-t border-slate-200 pt-4">
@@ -192,6 +236,12 @@ export default function ReservationModal({
           {checkIn && checkOut && nights === 0 && (
             <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               Check-out must be after check-in.
+            </div>
+          )}
+
+          {(numberOfGuest < 1 || numberOfGuest > 15) && (
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              Number of guests must be between 1 and 15.
             </div>
           )}
 
