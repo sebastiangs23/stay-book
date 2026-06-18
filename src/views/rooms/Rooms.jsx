@@ -205,16 +205,14 @@ export default function Rooms() {
 
       const method = isEditing ? "PATCH" : "POST";
 
-      const response = await axiosClient(url, {
+      await axiosClient({
+        url,
         method,
-        body: formData,
+        data: formData,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
-
-      if (!response.ok) {
-        throw new Error(
-          isEditing ? "Error updating room" : "Error creating room",
-        );
-      }
 
       await fetchRooms(search, page, limit);
       closeForm();
