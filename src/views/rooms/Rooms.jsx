@@ -10,6 +10,8 @@ import {
   FiUpload,
   FiX,
 } from "react-icons/fi";
+import { Flip, toast } from 'react-toastify';
+
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -122,7 +124,6 @@ export default function Rooms() {
   }
 
   function openEditForm(room) {
-
     window.scrollTo("0", "0");
 
     setEditingRoom(room);
@@ -201,6 +202,12 @@ export default function Rooms() {
     } catch (error) {
       setError(error.message || "Something went wrong");
     } finally {
+      toast.success("Successful !!", {
+        position: "top-center",
+        autoClose: 2000,
+        theme: "light",
+        transition: Flip
+      });
       setSaving(false);
     }
   }
@@ -346,13 +353,13 @@ export default function Rooms() {
                   onChange={handleInputChange}
                   required
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
-                  placeholder="Deluxe room"
+                  placeholder="101"
                 />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Price
+                  Price per night
                 </label>
                 <input
                   name="price"
