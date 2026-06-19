@@ -1,42 +1,47 @@
 import { useEffect, useState } from "react";
-import { FiCalendar, FiEdit2, FiRefreshCw, FiUser, FiX } from "react-icons/fi";
+import { FiCalendar, FiRefreshCw, FiUser, FiX } from "react-icons/fi";
 import { toast } from "react-toastify";
 import axiosClient from "../../api/axiosClient";
+import ReservationSection from "./components/ReservationSection";
 
-const RESERVATION_STATUS = {
+import {
+  RESERVATION_STATUS,
+  STATUS_TABS,
+  getStatusLabel,
+  getStoredUser,
+  formatDateForInput,
+  calculateNights,
+} from "../../utils/utils";
+
+const API_RESERVATION_STATUS = {
   UPCOMING: "upcoming",
   ACTIVE: "active",
+  PAST: "past",
   CANCELLED: "cancelled",
 };
 
-const STATUS_TABS = [
-  {
-    label: "Upcoming",
-    value: RESERVATION_STATUS.UPCOMING,
-  },
-  {
-    label: "Active",
-    value: RESERVATION_STATUS.ACTIVE,
-  },
-  {
-    label: "Cancelled",
-    value: RESERVATION_STATUS.CANCELLED,
-  },
-];
+function normalizeStatus(status) {
+  return String(status || "")
+    .trim()
+    .toLowerCase();
+}
 
-function getStoredUser() {
-  const storedUser = localStorage.getItem("staybook_user");
+function getStatusConstant(statusKey) {
+  return RESERVATION_STATUS?.[statusKey] || API_RESERVATION_STATUS[statusKey];
+}
 
-  if (!storedUser || storedUser === "undefined" || storedUser === "null") {
-    return null;
+function isSameStatus(status, apiStatus) {
+  return normalizeStatus(status) === apiStatus;
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  const message = error.response?.data?.message;
+
+  if (Array.isArray(message)) {
+    return message[0] || fallbackMessage;
   }
 
-  try {
-    return JSON.parse(storedUser);
-  } catch {
-    localStorage.removeItem("staybook_user");
-    return null;
-  }
+  return message || fallbackMessage;
 }
 
 export default function Reservations() {
@@ -44,7 +49,7 @@ export default function Reservations() {
 
   const [reservations, setReservations] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState(
-    RESERVATION_STATUS.UPCOMING,
+    getStatusConstant("UPCOMING"),
   );
   const [loading, setLoading] = useState(false);
   const [editingReservation, setEditingReservation] = useState(null);
@@ -67,7 +72,7 @@ export default function Reservations() {
       setLoading(true);
 
       const params = {
-        status,
+        status: normalizeStatus(status) || API_RESERVATION_STATUS.UPCOMING,
       };
 
       if (!isStaff) {
@@ -80,54 +85,71 @@ export default function Reservations() {
 
       setReservations(response.data?.data || []);
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Could not load reservations",
-      );
+      toast.error(getErrorMessage(error, "Could not load reservations"));
     } finally {
       setLoading(false);
     }
   }
 
   function getReservationStatus(reservation) {
-    if (reservation.status === RESERVATION_STATUS.CANCELLED) {
-      return RESERVATION_STATUS.CANCELLED;
+    const status = normalizeStatus(reservation.status);
+    const internalStatus = normalizeStatus(reservation.internalStatus);
+
+    if (
+      status === API_RESERVATION_STATUS.CANCELLED ||
+      internalStatus === API_RESERVATION_STATUS.CANCELLED
+    ) {
+      return getStatusConstant("CANCELLED");
     }
 
-    if (reservation.status === RESERVATION_STATUS.UPCOMING) {
-      return RESERVATION_STATUS.UPCOMING;
+    if (status === API_RESERVATION_STATUS.UPCOMING) {
+      return getStatusConstant("UPCOMING");
     }
 
-    if (reservation.status === RESERVATION_STATUS.ACTIVE) {
-      return RESERVATION_STATUS.ACTIVE;
+    if (status === API_RESERVATION_STATUS.ACTIVE) {
+      return getStatusConstant("ACTIVE");
+    }
+
+    if (status === API_RESERVATION_STATUS.PAST) {
+      return getStatusConstant("PAST");
     }
 
     const now = new Date();
     const checkIn = new Date(reservation.checkIn);
     const checkOut = new Date(reservation.checkOut);
 
-    if (checkIn > now) return RESERVATION_STATUS.UPCOMING;
-    if (checkIn <= now && checkOut > now) return RESERVATION_STATUS.ACTIVE;
+    if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
+      return getStatusConstant("PAST");
+    }
 
-    return "PAST";
+    if (checkIn > now) {
+      return getStatusConstant("UPCOMING");
+    }
+
+    if (checkIn <= now && checkOut > now) {
+      return getStatusConstant("ACTIVE");
+    }
+
+    return getStatusConstant("PAST");
   }
 
   function canCancelReservation(reservation) {
     const status = getReservationStatus(reservation);
 
-    if (status === RESERVATION_STATUS.CANCELLED) return false;
+    if (isSameStatus(status, API_RESERVATION_STATUS.CANCELLED)) {
+      return false;
+    }
 
-    /**
-     * This matches your current backend rule:
-     * any user can cancel only if the reservation is more than 24 hours
-     * before check-in.
-     *
-     * If later you want STAFF to cancel any reservation, the backend must also
-     * be changed to receive/authenticate the user role.
-     */
-    if (status !== RESERVATION_STATUS.UPCOMING) return false;
+    if (!isSameStatus(status, API_RESERVATION_STATUS.UPCOMING)) {
+      return false;
+    }
 
     const now = new Date();
     const checkIn = new Date(reservation.checkIn);
+
+    if (Number.isNaN(checkIn.getTime())) {
+      return false;
+    }
 
     const diffMs = checkIn.getTime() - now.getTime();
     const diffHours = diffMs / (1000 * 60 * 60);
@@ -138,9 +160,17 @@ export default function Reservations() {
   function canEditReservation(reservation) {
     const status = getReservationStatus(reservation);
 
-    if (status === RESERVATION_STATUS.CANCELLED) return false;
-    if (status === RESERVATION_STATUS.ACTIVE) return false;
-    if (status === "PAST") return false;
+    if (isSameStatus(status, API_RESERVATION_STATUS.CANCELLED)) {
+      return false;
+    }
+
+    if (isSameStatus(status, API_RESERVATION_STATUS.ACTIVE)) {
+      return false;
+    }
+
+    if (isSameStatus(status, API_RESERVATION_STATUS.PAST)) {
+      return false;
+    }
 
     return true;
   }
@@ -159,9 +189,7 @@ export default function Reservations() {
       toast.success("Reservation cancelled successfully");
       fetchReservations(selectedStatus);
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Could not cancel reservation",
-      );
+      toast.error(getErrorMessage(error, "Could not cancel reservation"));
     }
   }
 
@@ -210,8 +238,10 @@ export default function Reservations() {
       fetchReservations(selectedStatus);
     } catch (error) {
       toast.error(
-        error.response?.data?.message ||
+        getErrorMessage(
+          error,
           "The room is not available for the selected dates.",
+        ),
       );
     }
   }
@@ -243,7 +273,8 @@ export default function Reservations() {
       <div className="rounded-3xl bg-white p-2 shadow-sm">
         <div className="grid gap-2 sm:grid-cols-3">
           {STATUS_TABS.map((tab) => {
-            const isActive = selectedStatus === tab.value;
+            const isActive =
+              normalizeStatus(selectedStatus) === normalizeStatus(tab.value);
 
             return (
               <button
@@ -404,204 +435,4 @@ export default function Reservations() {
       )}
     </div>
   );
-}
-
-function ReservationSection({
-  title,
-  reservations,
-  isStaff,
-  canCancelReservation,
-  canEditReservation,
-  onCancel,
-  onEdit,
-  getReservationStatus,
-}) {
-  return (
-    <section>
-      <div className="mb-4 flex items-end justify-between gap-4">
-        <div>
-          <h3 className="text-xl font-bold text-slate-950">{title}</h3>
-
-          <p className="mt-1 text-sm text-slate-500">
-            {reservations.length} reservation
-            {reservations.length === 1 ? "" : "s"} found.
-          </p>
-        </div>
-      </div>
-
-      {reservations.length === 0 ? (
-        <div className="rounded-3xl bg-white p-6 text-sm text-slate-500 shadow-sm">
-          No reservations found.
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {reservations.map((reservation) => (
-            <ReservationCard
-              key={reservation.id}
-              reservation={reservation}
-              isStaff={isStaff}
-              status={getReservationStatus(reservation)}
-              canCancel={canCancelReservation(reservation)}
-              canEdit={canEditReservation(reservation)}
-              onCancel={() => onCancel(reservation)}
-              onEdit={() => onEdit(reservation)}
-            />
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ReservationCard({
-  reservation,
-  isStaff,
-  status,
-  canCancel,
-  canEdit,
-  onCancel,
-  onEdit,
-}) {
-  const checkIn = formatDateLabel(reservation.checkIn);
-  const checkOut = formatDateLabel(reservation.checkOut);
-
-  return (
-    <article className="rounded-3xl bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className="text-lg font-bold text-slate-950">
-              Room{" "}
-              {reservation.roomName ||
-                reservation.room?.name ||
-                reservation.roomId}
-            </h4>
-
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusClassName(
-                status,
-              )}`}
-            >
-              {status}
-            </span>
-          </div>
-
-          {isStaff && (
-            <p className="mt-2 text-sm text-slate-500">
-              Guest:{" "}
-              <span className="font-semibold text-slate-700">
-                {reservation.guestName ||
-                  reservation.user?.name ||
-                  reservation.userName ||
-                  "Guest name not available"}
-              </span>
-            </p>
-          )}
-
-          <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
-            <p>
-              <span className="font-semibold text-slate-800">Check-in:</span>{" "}
-              {checkIn}
-            </p>
-
-            <p>
-              <span className="font-semibold text-slate-800">Check-out:</span>{" "}
-              {checkOut}
-            </p>
-
-            <p>
-              <span className="font-semibold text-slate-800">Guests:</span>{" "}
-              {reservation.numberOfGuest || 1}
-            </p>
-
-            <p>
-              <span className="font-semibold text-slate-800">Total:</span> $
-              {Number(reservation.totalPrice || 0).toFixed(2)}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
-          <button
-            type="button"
-            onClick={onEdit}
-            disabled={!canEdit}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <FiEdit2 />
-            Edit
-          </button>
-
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={!canCancel}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <FiX />
-            Cancel
-          </button>
-        </div>
-      </div>
-
-      {!canCancel && status !== RESERVATION_STATUS.CANCELLED && (
-        <p className="mt-4 rounded-2xl bg-amber-50 p-3 text-xs font-medium text-amber-700">
-          This reservation can only be cancelled more than 24 hours before
-          check-in.
-        </p>
-      )}
-    </article>
-  );
-}
-
-function getStatusLabel(status) {
-  if (status === RESERVATION_STATUS.UPCOMING) return "UPCOMING";
-  if (status === RESERVATION_STATUS.ACTIVE) return "ACTIVE";
-  if (status === RESERVATION_STATUS.CANCELLED) return "CANCELLED";
-
-  return status;
-}
-
-function getStatusClassName(status) {
-  if (status === RESERVATION_STATUS.UPCOMING) {
-    return "bg-blue-100 text-blue-700";
-  }
-
-  if (status === RESERVATION_STATUS.ACTIVE) {
-    return "bg-emerald-100 text-emerald-700";
-  }
-
-  if (status === RESERVATION_STATUS.CANCELLED) {
-    return "bg-red-100 text-red-700";
-  }
-
-  return "bg-slate-100 text-slate-700";
-}
-
-function formatDateForInput(date) {
-  if (!date) return "";
-
-  return new Date(date).toISOString().split("T")[0];
-}
-
-function formatDateLabel(date) {
-  if (!date) return "-";
-
-  return new Date(date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  });
-}
-
-function calculateNights(checkIn, checkOut) {
-  if (!checkIn || !checkOut) return 0;
-
-  const start = new Date(checkIn);
-  const end = new Date(checkOut);
-
-  const diffMs = end.getTime() - start.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
-  return diffDays > 0 ? diffDays : 0;
 }

@@ -74,9 +74,6 @@ export default function SignIn() {
       }),
     );
 
-    console.log('....', result.payload)
-    //TODO: REFACTOR THIS
-
     if(result.payload?.id){
       navigate("/home");
     }
