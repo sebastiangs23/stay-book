@@ -16,43 +16,10 @@ import { fetchRooms } from "../../store/slices/roomsSlice";
 import RoomCard from "./components/RoomCard";
 import StatCard from "./components/StatCard";
 import ReservationModal from "./components/ReservationModal";
+
 import axiosClient from "../../api/axiosClient";
 import { Flip, toast } from "react-toastify";
-
-const roomImages = [
-  "https://technical-test-abu-dhabi.s3.us-east-1.amazonaws.com/room.jpg",
-  "https://technical-test-abu-dhabi.s3.us-east-1.amazonaws.com/room1.jpg",
-];
-
-const DEFAULT_LIMIT = 12;
-
-const getRoomImage = (room, index) => {
-  if (Array.isArray(room?.photos) && room.photos.length > 0) {
-    return room.photos[0];
-  }
-
-  return roomImages[index % roomImages.length];
-};
-
-const formatPrice = (price) => {
-  const numericPrice = Number(price);
-
-  if (Number.isNaN(numericPrice)) {
-    return "$0.00";
-  }
-
-  return `$${numericPrice.toFixed(2)}`;
-};
-
-const formatDateForApi = (date) => {
-  if (!date) return "";
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-};
+import { formatDateForApi, formatPrice, getRoomImage, roomImages, DEFAULT_LIMIT } from "../../utils/utils";
 
 export default function Home() {
   const dispatch = useDispatch();
