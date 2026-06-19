@@ -1,3 +1,4 @@
+//Static Data
 export const RESERVATION_STATUS = {
   UPCOMING: "UPCOMING",
   ACTIVE: "ACTIVE",
@@ -19,6 +20,33 @@ export const STATUS_TABS = [
   },
 ];
 
+export const AMENITY_OPTIONS = [
+  { value: "WIFI", label: "Wi-Fi" },
+  { value: "TV", label: "TV" },
+  { value: "AIR_CONDITIONING", label: "Air conditioning" },
+  { value: "PRIVATE_BATHROOM", label: "Private bathroom" },
+  { value: "BREAKFAST", label: "Breakfast" },
+  { value: "DESK", label: "Desk" },
+  { value: "PARKING", label: "Parking" },
+];
+
+export const emptyForm = {
+  name: "",
+  description: "",
+  price: "",
+  floor: "",
+  isActive: true,
+  amenities: [],
+};
+
+export const roomImages = [
+  "https://technical-test-abu-dhabi.s3.us-east-1.amazonaws.com/room.jpg",
+  "https://technical-test-abu-dhabi.s3.us-east-1.amazonaws.com/room1.jpg",
+];
+
+export const DEFAULT_LIMIT = 12;
+
+//Helpers fns()
 export function getStoredUser() {
   const storedUser = localStorage.getItem("staybook_user");
 
@@ -85,3 +113,31 @@ export function calculateNights(checkIn, checkOut) {
 
   return diffDays > 0 ? diffDays : 0;
 }
+
+export const getRoomImage = (room, index) => {
+  if (Array.isArray(room?.photos) && room.photos.length > 0) {
+    return room.photos[0];
+  }
+
+  return roomImages[index % roomImages.length];
+};
+
+export const formatPrice = (price) => {
+  const numericPrice = Number(price);
+
+  if (Number.isNaN(numericPrice)) {
+    return "$0.00";
+  }
+
+  return `$${numericPrice.toFixed(2)}`;
+};
+
+export const formatDateForApi = (date) => {
+  if (!date) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};

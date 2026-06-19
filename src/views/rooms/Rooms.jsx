@@ -13,15 +13,48 @@ import ModalConfirmation from "../../../shared/modals/ModalConfirmation";
 import { Flip, toast } from "react-toastify";
 import axiosClient from "../../api/axiosClient";
 
+import { emptyForm, AMENITY_OPTIONS } from "../../utils/utils";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-const emptyForm = {
-  name: "",
-  description: "",
-  price: "",
-  floor: "",
-  isActive: true,
-};
+function normalizeAmenities(amenities) {
+  if (!Array.isArray(amenities)) {
+    return [];
+  }
+
+  return amenities
+    .flatMap((item) => {
+      if (typeof item === "string" && item.trim().startsWith("[")) {
+        try {
+          const parsed = JSON.parse(item);
+
+          if (Array.isArray(parsed)) {
+            return parsed;
+          }
+
+          return item;
+        } catch {
+          return item;
+        }
+      }
+
+      return item;
+    })
+    .filter(Boolean);
+}
+
+function formatAmenityLabel(amenityValue) {
+  const option = AMENITY_OPTIONS.find((item) => item.value === amenityValue);
+
+  if (option) {
+    return option.label;
+  }
+
+  return String(amenityValue)
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
 export default function Rooms() {
   const [rooms, setRooms] = useState([]);
@@ -117,7 +150,18 @@ export default function Rooms() {
   }
 
   function handleInputChange(event) {
-    const { name, value, type, checked } = event.target;
+    const { name, value, type, checked, selectedOptions } = event.target;
+
+    if (type === "select-multiple") {
+      const values = Array.from(selectedOptions).map((option) => option.value);
+
+      setForm((prev) => ({
+        ...prev,
+        [name]: values,
+      }));
+
+      return;
+    }
 
     setForm((prev) => ({
       ...prev,
@@ -160,6 +204,7 @@ export default function Rooms() {
       price: room.price || "",
       floor: room.floor || "",
       isActive: room.isActive ?? true,
+      amenities: normalizeAmenities(room.amenities),
     });
 
     setExistingPhotos(room.photos || []);
@@ -190,6 +235,7 @@ export default function Rooms() {
       formData.append("price", String(form.price));
       formData.append("floor", String(form.floor));
       formData.append("isActive", String(form.isActive));
+      formData.append("amenities", JSON.stringify(form.amenities || []));
 
       if (isEditing) {
         formData.append("photosToKeep", JSON.stringify(existingPhotos));
@@ -519,6 +565,40 @@ export default function Rooms() {
             </div>
 
             <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                Amenities
+              </label>
+
+              <select
+                name="amenities"
+                multiple
+                value={form.amenities}
+                onChange={handleInputChange}
+                className="min-h-40 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+              >
+                {AMENITY_OPTIONS.map((amenity) => (
+                  <option key={amenity.value} value={amenity.value}>
+                    {amenity.label}
+                  </option>
+                ))}
+              </select>
+
+              <p className="mt-2 text-xs text-slate-500">
+                Hold Ctrl on Windows or Command on Mac to select multiple
+                amenities.
+              </p>
+
+              {form.amenities.length > 0 && (
+                <p className="mt-3 text-sm text-slate-500">
+                  <span className="font-semibold text-slate-700">
+                    Selected:{" "}
+                  </span>
+                  {form.amenities.map(formatAmenityLabel).join(", ")}
+                </p>
+              )}
+            </div>
+
+            <div>
               <label className="mb-3 block text-sm font-semibold text-slate-700">
                 Photos
               </label>
@@ -669,6 +749,8 @@ export default function Rooms() {
                   room.photos?.[0] ||
                   "https://technical-test-abu-dhabi.s3.us-east-1.amazonaws.com/room.jpg";
 
+                const amenities = normalizeAmenities(room.amenities);
+
                 return (
                   <article
                     key={room.id}
@@ -717,6 +799,15 @@ export default function Rooms() {
                         <FiImage />
                         <span>{room.photos?.length || 0} photos</span>
                       </div>
+
+                      {amenities.length > 0 && (
+                        <p className="mt-3 line-clamp-2 text-sm text-slate-500">
+                          <span className="font-semibold text-slate-700">
+                            Amenities:{" "}
+                          </span>
+                          {amenities.map(formatAmenityLabel).join(", ")}
+                        </p>
+                      )}
 
                       <div className="mt-5 grid grid-cols-3 gap-2">
                         <button
