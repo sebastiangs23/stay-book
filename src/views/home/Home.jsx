@@ -10,7 +10,7 @@ import {
   FiX,
 } from "react-icons/fi";
 
-import { fetchSubmodules } from "../../store/slices/submodulesSlice";
+import { fetchSubmodules } from "../../store/slices/subModulesSlice";
 import { fetchRooms } from "../../store/slices/roomsSlice";
 
 import RoomCard from "./components/RoomCard";
