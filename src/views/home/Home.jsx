@@ -193,7 +193,7 @@ export default function Home() {
               </p>
 
               <h1 className="max-w-2xl text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-                Hey, {user?.name || "there"}! Tell us where you want to go
+                Hey, {user?.name || "there"}! Check the available rooms.
               </h1>
 
               <p className="mt-4 max-w-xl text-base leading-7 text-white/80">
@@ -304,7 +304,7 @@ export default function Home() {
       <section className="mt-8">
         <div className="mb-5">
           <h2 className="text-2xl font-bold tracking-tight text-slate-950">
-            Available rooms
+            All our rooms
           </h2>
 
           <p className="mt-1 text-sm text-slate-500">
